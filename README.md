@@ -21,7 +21,7 @@ const ast = parse(data);
 ```
 
 Abstract syntax tree for `!3m1!4b1!4m5!3m4!1s0x0:0xe665b3308d32f379!8m2!3d-37.8805676!4d145.1644849`:
-```json
+```ts
 {
   matrix: {
     '3': {
