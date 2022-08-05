@@ -12,6 +12,19 @@
     "lib",
     "media"
   ],
+  "keywords": [
+    "google",
+    "maps",
+    "data",
+    "ast",
+    "geo",
+    "pb",
+    "parameter",
+    "query",
+    "parse",
+    "serialize",
+    "stringify"
+  ],
   "scripts": {
     "dev": "tsc --build --watch",
     "build": "tsc --build",
