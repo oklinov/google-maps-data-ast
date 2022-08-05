@@ -1,7 +1,7 @@
 {
   "name": "google-maps-data-ast",
   "description": "Parse and/or stringify Google Maps proprietary data type (aka !1m3 style)",
-  "version": "0.0.1",
+  "version": "0.0.11",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "directories": {
@@ -36,10 +36,10 @@
   "packageManager": "yarn@3.2.0",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/gahabeen/google-maps-paremeter-parser/issues"
+    "url": "https://github.com/gahabeen/google-maps-data-ast/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gahabeen/google-maps-paremeter-parser.git"
+    "url": "git+https://github.com/gahabeen/google-maps-data-ast.git"
   }
 }

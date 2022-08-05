@@ -82,6 +82,7 @@ export const parseSegment = (segment: string): { id: number, code: T.ParameterCo
 
 export const parse = (data: string, options?: { loose: boolean }): T.ParameterTreeRoot => {
     const { loose = false } = options || {};
+    if (!data) return {};
 
     const segmentsList = decodeURIComponent(data).split('!').filter(Boolean);
 
@@ -138,6 +139,9 @@ export const stringifyChildren = (children: T.ParameterTreeChildren): string => 
 };
 
 export const stringify = <T extends T.ParameterTreeRoot>(tree: T): string => {
+    if (!tree) {
+        throw new Error('Invalid ast input');
+    }
     return `!${stringifyChildren(tree)}`;
 };
 
