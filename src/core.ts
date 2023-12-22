@@ -15,12 +15,14 @@ const datatTypesMap: Record<T.ParameterCodes, string | undefined> = {
     y: undefined,
 };
 
-export const parseStringValue = (str: string): T.ReallyAny => {
-    if (str.startsWith('0x')) return parseInt(str.slice(2), 16);
-    return str;
+export const parseStringValue = (str: string): number | string => {
+    return str.startsWith('0x') ? parseInt(str.slice(2), 16) : str;
 };
 
-export const parseValue = (code: T.ParameterCodes, value: string) => {
+export const parseValue = (code: string, value: string | undefined): T.ReallyAny => {
+    if (!value) {
+        return undefined;
+    }
     switch (code) {
         case 'm':
             return parseInt(value, 10);
@@ -33,7 +35,9 @@ export const parseValue = (code: T.ParameterCodes, value: string) => {
         case 'b':
             return value === '1';
         case 's':
-            if (value.includes(':')) return value.split(':').map(parseStringValue);
+            if (value.includes(':')) {
+                return value.split(':').map(parseStringValue);
+            }
             return parseStringValue(value);
         case 'e':
             return parseInt(value, 10);
@@ -56,58 +60,65 @@ export const parseValue = (code: T.ParameterCodes, value: string) => {
     }
 };
 
-export const parseSegment = (segment: string): { id: number, code: T.ParameterCodes, type: string, value: string } => {
-    let id: string; let code: string; let
-        value: any;
+export const parseSegment = (segment: string): T.ParameterTree => {
+    let id: string;
+    let code: string;
+    let value: string | undefined;
+    if (segment === '') {
+        return null;
+    }
 
-    ([id, code, value] = (segment.match(/(\d+)(\w)(.+)/) || []).slice(1));
+    [id, code, value] = (segment.match(/(\d+)([a-zA-Z])(.+)?/) || []).slice(1);
 
     // If no id, catch root type (usually a matrix)
     if (!id) {
         id = '0';
-        ([code, value] = (segment.match(/(\w)(.+)/) || []).slice(1));
+        [code, value] = (segment.match(/([a-zA-Z])(.+)/) || []).slice(1);
     }
 
-    if (Number.isNaN(parseInt(id, 10))) {
+    const idNum = parseInt(id, 10);
+    if (Number.isNaN(idNum)) {
         throw new Error(`Invalid id: ${id}`);
     }
+    const data = parseValue(code, value);
 
     return {
-        id: parseInt(id, 10),
+        id: idNum,
         code: code as T.ParameterCodes,
         type: datatTypesMap[code as T.ParameterCodes] || 'unknown',
         value,
+        data,
     };
 };
 
-export const parse = (data: string, options?: { loose: boolean }): T.ParameterTreeRoot => {
+export const parse = (data: string, options?: { loose: boolean }): T.ParameterArray => {
     const { loose = false } = options || {};
-    if (!data) return {};
+    if (!data) return [];
 
-    const segmentsList = decodeURIComponent(data).split('!').filter(Boolean);
+    const segmentsList = decodeURIComponent(data).split('!').slice(1);
 
-    const reduce = (segments: string[]): T.ParameterTreeChildren => {
-        const children = {} as T.ParameterTreeChildren;
+    const reduce = (segments: string[]): T.ParameterArray => {
+        const children: T.ParameterArray = [];
 
         while (segments.length) {
             const segment = segments.shift() as string;
-            const { id, code, type, value } = parseSegment(segment);
-            if (!children[type]) children[type] = {};
+            const node = parseSegment(segment);
 
-            children[type][id] = {
-                id,
-                code,
-                type,
-                value,
-                data: parseValue(code, value),
-            };
-
-            if (type === 'matrix') {
-                if (segments.length < (parseInt(value, 10) - 1) && !loose) {
-                    throw new Error(`Invalid matrix length: ${value}`);
+            if (node?.type === 'matrix') {
+                const matrixSize = node.value && parseInt(node.value, 10);
+                if (typeof matrixSize !== 'number') {
+                    throw new Error(`Invalid matrix value: ${node.value}`);
                 }
-                const mappedSegments = segments.splice(0, parseInt(value, 10));
-                children[type][id].children = reduce(mappedSegments);
+                if (segments.length < matrixSize - 1 && !loose) {
+                    throw new Error(`Invalid matrix length: ${node.value}`);
+                }
+                const mappedSegments = segments.splice(0, matrixSize);
+                children.push({
+                    ...node,
+                    children: matrixSize === 0 ? undefined : reduce(mappedSegments),
+                });
+            } else {
+                children.push(node);
             }
         }
 
@@ -118,8 +129,11 @@ export const parse = (data: string, options?: { loose: boolean }): T.ParameterTr
 };
 
 export const stringifySegment = (segment: T.ParameterTree): string => {
+    if (segment === null) {
+        return '';
+    }
     const { id, code, value, children } = segment;
-    const segmentString = `${id}${code}${value}`;
+    const segmentString = `${id}${code}${value ?? ''}`;
 
     if (children) {
         const mappedChildren = stringifyChildren(children);
@@ -129,16 +143,11 @@ export const stringifySegment = (segment: T.ParameterTree): string => {
     return segmentString;
 };
 
-export const stringifyChildren = (children: T.ParameterTreeChildren): string => {
-    return Object.values(children)
-        .flatMap(
-            (typeKeyValues: T.ParameterTreeChildrenKeyValues) => Object.values(typeKeyValues)
-                .map(stringifySegment),
-        )
-        .join('!');
+export const stringifyChildren = (children: T.ParameterArray): string => {
+    return children.map(stringifySegment).join('!');
 };
 
-export const stringify = <T extends T.ParameterTreeRoot>(tree: T): string => {
+export const stringify = <T extends T.ParameterArray>(tree: T): string => {
     if (!tree) {
         throw new Error('Invalid ast input');
     }
